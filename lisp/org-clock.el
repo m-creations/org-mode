@@ -1887,9 +1887,11 @@ PROPNAME lets you set a custom text property instead of :org-clock-minutes."
 		       ((consp tend) (float-time tend))
 		       (t tend)))
 	   (t1 0)
+	   timelist
 	   time)
       (remove-text-properties (point-min) (point-max)
 			      `(,(or propname :org-clock-minutes) t
+				:org-clock-timelist t
 				:org-clock-force-headline-inclusion t))
       (save-excursion
 	(goto-char (point-max))
@@ -1906,7 +1908,8 @@ PROPNAME lets you set a custom text property instead of :org-clock-minutes."
 			       (org-parse-time-string (match-string 3)))))
 		   (dt (- (if tend (min te tend) te)
 			  (if tstart (max ts tstart) ts))))
-	      (when (> dt 0) (cl-incf t1 (floor dt 60)))))
+	      (when (> dt 0) (cl-incf t1 (floor dt 60)))
+	      (push (list ts te dt) timelist)))
 	   ((match-end 4)
 	    ;; A naked time.
 	    (setq t1 (+ t1 (string-to-number (match-string 5))
@@ -1943,6 +1946,9 @@ PROPNAME lets you set a custom text property instead of :org-clock-minutes."
 		  (goto-char (match-beginning 0))
 		  (put-text-property (point) (point-at-eol)
 				     (or propname :org-clock-minutes) time)
+		  (put-text-property (point) (point-at-eol)
+				     :org-clock-timelist timelist)
+		  (setq timelist nil)
 		  (when headline-filter
 		    (save-excursion
 		      (save-match-data
@@ -2856,13 +2862,13 @@ a number of clock tables."
               ;; Write clock table between START and NEXT.
 	      (org-dblock-write:clocktable
 	       (org-combine-plists
-	        params (list :header ""
+                params (list :header ""
                              :step nil
                              :block nil
-		             :tstart (format-time-string
+                             :tstart (format-time-string
                                       (org-time-stamp-format t t)
                                       start)
-		             :tend (format-time-string
+                             :tend (format-time-string
                                     (org-time-stamp-format t t)
                                     ;; Never include clocks past END.
                                     (if (time-less-p end next) end next)))))))
@@ -2981,8 +2987,9 @@ PROPERTIES: The list properties specified in the `:properties' parameter
 				      (let ((v (org-entry-get
 						(point) p inherit-property-p)))
 					(and v (cons p v))))
-				    properties)))))
-		  (push (list level hdl tgs tsp time props) tbl)))))))
+				    properties))))
+                       (timelist (get-text-property (point) :org-clock-timelist)))
+		  (push (list level hdl tgs tsp time props timelist) tbl)))))))
       (list file org-clock-file-total-minutes (nreverse tbl)))))
 
 ;; Saving and loading the clock
