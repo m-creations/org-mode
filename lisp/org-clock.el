@@ -1927,9 +1927,11 @@ PROPNAME lets you set a custom text property instead of :org-clock-minutes."
 		       ((consp tend) (float-time tend))
 		       (t tend)))
 	   (t1 0)
+	   timelist
 	   time)
       (remove-text-properties (point-min) (point-max)
 			      `(,(or propname :org-clock-minutes) t
+				:org-clock-timelist t
 				:org-clock-force-headline-inclusion t))
       (save-excursion
 	(goto-char (point-max))
@@ -1947,7 +1949,8 @@ PROPNAME lets you set a custom text property instead of :org-clock-minutes."
 		     (te (org-time-string-to-seconds se))
 		     (dt (- (if tend (min te tend) te)
 			    (if tstart (max ts tstart) ts))))
-	        (when (> dt 0) (cl-incf t1 (floor dt 60)))))
+		(when (> dt 0) (cl-incf t1 (floor dt 60)))
+                (push (list ts te dt) timelist)))
 	     ((match-end 4)
 	      ;; A naked time.
 	      (setq t1 (+ t1 (string-to-number (match-string 5))
@@ -1984,6 +1987,9 @@ PROPNAME lets you set a custom text property instead of :org-clock-minutes."
 		    (goto-char (match-beginning 0))
                     (put-text-property (point) (line-end-position)
 				       (or propname :org-clock-minutes) time)
+                    (put-text-property (point) (point-at-eol)
+                                       :org-clock-timelist timelist)
+                    (setq timelist nil)
 		    (when headline-filter
 		      (save-excursion
 		        (save-match-data
@@ -3048,8 +3054,9 @@ PROPERTIES: The list properties specified in the `:properties' parameter
 				      (let ((v (org-entry-get
 						(point) p inherit-property-p)))
 					(and v (cons p v))))
-				    properties)))))
-		  (push (list level hdl tgs tsp time props) tbl)))))))
+				    properties))))
+                       (timelist (get-text-property (point) :org-clock-timelist)))
+		  (push (list level hdl tgs tsp time props timelist) tbl)))))))
       (list file org-clock-file-total-minutes (nreverse tbl)))))
 
 ;; Saving and loading the clock
